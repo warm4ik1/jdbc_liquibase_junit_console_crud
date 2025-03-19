@@ -43,90 +43,100 @@ public class JdbcWriterRepository implements WriterRepository {
 
     @Override
     public Writer getById(Integer id) {
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(GET_BY_ID_SQL)) {
-            preparedStatement.setInt(1, id);
+        return ConnectionManager.executeInTransactionWithResult(connection -> {
+            try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(GET_BY_ID_SQL)) {
+                preparedStatement.setInt(1, id);
 
-            ResultSet rs = preparedStatement.executeQuery();
-            if (rs.next()) {
-                return WriterMapper.mapResultSetToWriter(rs);
-            } else {
-                throw new NotFoundException("Писатель с таким id не найден.");
+                ResultSet rs = preparedStatement.executeQuery();
+                if (rs.next()) {
+                    return WriterMapper.mapResultSetToWriter(rs);
+                } else {
+                    throw new NotFoundException("Писатель с таким id не найден.");
+                }
+            } catch (SQLException e) {
+                throw new JdbcRepositoryException(e.getMessage());
             }
-        } catch (SQLException e) {
-            throw new JdbcRepositoryException(e.getMessage());
-        }
+        });
     }
 
     @Override
     public List<Writer> getAll() {
-        List<Writer> writers = new ArrayList<>();
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(GET_ALL_SQL)) {
+        return ConnectionManager.executeInTransactionWithResult(connection -> {
+            List<Writer> writers = new ArrayList<>();
+            try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(GET_ALL_SQL)) {
 
-            ResultSet rs = preparedStatement.executeQuery();
-            while (rs.next()) {
-                writers.add(WriterMapper.mapResultSetToWriter(rs));
+                ResultSet rs = preparedStatement.executeQuery();
+                while (rs.next()) {
+                    writers.add(WriterMapper.mapResultSetToWriter(rs));
+                }
+                return writers;
+            } catch (SQLException e) {
+                throw new JdbcRepositoryException(e.getMessage());
             }
-            return writers;
-        } catch (SQLException e) {
-            throw new JdbcRepositoryException(e.getMessage());
-        }
+        });
     }
 
     @Override
     public Writer save(Writer writer) {
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatementWithKeys(SAVE_WRITER_SQL)) {
-            preparedStatement.setString(1, writer.getFirstName());
-            preparedStatement.setString(2, writer.getLastName());
-            preparedStatement.setString(3, writer.getWriterStatus().name());
+        return ConnectionManager.executeInTransactionWithResult(connection -> {
+            try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatementWithKeys(SAVE_WRITER_SQL)) {
+                preparedStatement.setString(1, writer.getFirstName());
+                preparedStatement.setString(2, writer.getLastName());
+                preparedStatement.setString(3, writer.getWriterStatus().name());
 
-            int rowCount = preparedStatement.executeUpdate();
-            if (rowCount == 0) {
-                throw new NotFoundException("Не удалось сохранить пользователя");
-            }
+                int rowCount = preparedStatement.executeUpdate();
+                if (rowCount == 0) {
+                    throw new JdbcRepositoryException("Не удалось сохранить пользователя");
+                }
 
-            ResultSet rs = preparedStatement.getGeneratedKeys();
-            if (rs.next()) {
-                writer.setId(rs.getInt(1));
-            } else {
-                throw new JdbcRepositoryException("Создание писателя не удалось, получить id не удалось");
+                ResultSet rs = preparedStatement.getGeneratedKeys();
+                if (rs.next()) {
+                    writer.setId(rs.getInt(1));
+                } else {
+                    throw new JdbcRepositoryException("Создание писателя не удалось, получить id не удалось");
+                }
+            } catch (SQLException e) {
+                throw new JdbcRepositoryException(e.getMessage());
             }
-        } catch (SQLException e) {
-            throw new JdbcRepositoryException(e.getMessage());
-        }
-        return writer;
+            return writer;
+        });
     }
 
     @Override
     public Writer update(Writer updateWriter) {
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(UPDATE_BY_ID_SQL)) {
-            preparedStatement.setString(1, updateWriter.getFirstName());
-            preparedStatement.setString(2, updateWriter.getLastName());
-            preparedStatement.setString(3, Status.UNDER_REVIEW.name());
-            preparedStatement.setLong(4, updateWriter.getId());
+        return ConnectionManager.executeInTransactionWithResult(connection -> {
+            try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(UPDATE_BY_ID_SQL)) {
+                preparedStatement.setString(1, updateWriter.getFirstName());
+                preparedStatement.setString(2, updateWriter.getLastName());
+                preparedStatement.setString(3, Status.UNDER_REVIEW.name());
+                preparedStatement.setLong(4, updateWriter.getId());
 
-            int rowCount = preparedStatement.executeUpdate();
-            if (rowCount == 0) {
-                throw new JdbcRepositoryException("Обновление писателя не удалось, ни одна запись не была изменена.");
+                int rowCount = preparedStatement.executeUpdate();
+                if (rowCount == 0) {
+                    throw new JdbcRepositoryException("Обновление писателя не удалось, ни одна запись не была изменена.");
+                }
+            } catch (SQLException e) {
+                throw new JdbcRepositoryException("Ошибка выполнения SQL-запроса", e);
             }
-        } catch (SQLException e) {
-            throw new JdbcRepositoryException("Ошибка выполнения SQL-запроса", e);
-        }
-        return updateWriter;
+            return updateWriter;
+        });
     }
 
     @Override
     public void deleteById(Integer id) {
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(DELETE_BY_ID_SQL)) {
-            preparedStatement.setString(1, Status.DELETED.name());
-            preparedStatement.setInt(2, id);
+        ConnectionManager.executeInTransaction(connection -> {
+            try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(DELETE_BY_ID_SQL)) {
+                preparedStatement.setString(1, Status.DELETED.name());
+                preparedStatement.setInt(2, id);
 
-            int rowCount = preparedStatement.executeUpdate();
-            if (rowCount == 0) {
-                throw new NotFoundException("Id не найден. Писатель не может быть удалён.");
+                int rowCount = preparedStatement.executeUpdate();
+                if (rowCount == 0) {
+                    throw new NotFoundException("Id не найден. Писатель не может быть удалён.");
+                }
+            } catch (SQLException e) {
+                throw new JdbcRepositoryException(e.getMessage());
             }
-        } catch (SQLException e) {
-            throw new JdbcRepositoryException(e.getMessage());
-        }
 
+        });
     }
 }

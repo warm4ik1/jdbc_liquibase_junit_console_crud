@@ -9,10 +9,7 @@ import org.warm4ik.crud.model.Post;
 import org.warm4ik.crud.repository.PostRepository;
 import org.warm4ik.crud.utils.ConnectionManager;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,122 +58,127 @@ public class JdbcPostRepository implements PostRepository {
 
     @Override
     public Post getById(Integer id) {
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(GET_BY_ID_SQL)) {
-            preparedStatement.setInt(1, id);
+        return ConnectionManager.executeInTransactionWithResult(connection -> {
+            try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(GET_BY_ID_SQL)) {
+                preparedStatement.setInt(1, id);
 
-            ResultSet rs = preparedStatement.executeQuery();
-            if (!rs.next()) {
-                throw new NotFoundException("Поста с данным id не существует.");
+                ResultSet rs = preparedStatement.executeQuery();
+                if (!rs.next()) {
+                    throw new NotFoundException("Поста с данным id не существует.");
+                }
+                return PostMapper.mapResultSetToPost(rs);
+            } catch (SQLException e) {
+                throw new JdbcRepositoryException(e.getMessage());
             }
-            return PostMapper.mapResultSetToPost(rs);
-        } catch (SQLException e) {
-            throw new JdbcRepositoryException(e.getMessage());
-        }
+        });
     }
 
     @Override
     public List<Post> getAll() {
-        List<Post> posts = new ArrayList<>();
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(GET_ALL_SQL)) {
-            ResultSet rs = preparedStatement.executeQuery();
-            while (rs.next()) {
-                posts.add(PostMapper.mapResultSetToPost(rs));
+        return ConnectionManager.executeInTransactionWithResult(connection -> {
+            List<Post> posts = new ArrayList<>();
+            try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(GET_ALL_SQL)) {
+                ResultSet rs = preparedStatement.executeQuery();
+                while (rs.next()) {
+                    posts.add(PostMapper.mapResultSetToPost(rs));
+                }
+            } catch (SQLException e) {
+                throw new JdbcRepositoryException(e.getMessage());
             }
-        } catch (SQLException e) {
-            throw new JdbcRepositoryException(e.getMessage());
-        }
-        return posts;
+            return posts;
+        });
     }
 
 
     @Override
     public Post save(Post post) {
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatementWithKeys(SAVE_SQL)) {
-            preparedStatement.setString(1, post.getContent());
-            preparedStatement.setTimestamp(2, new Timestamp(post.getCreated().getTime()));
-            preparedStatement.setTimestamp(3, new Timestamp(post.getUpdated().getTime()));
-            preparedStatement.setString(4, post.getPostStatus().name());
-            preparedStatement.setLong(5, post.getWriter().getId());
+        return ConnectionManager.executeInTransactionWithResult(connection -> {
+            try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatementWithKeys(SAVE_SQL)) {
+                preparedStatement.setString(1, post.getContent());
+                preparedStatement.setTimestamp(2, new Timestamp(post.getCreated().getTime()));
+                preparedStatement.setTimestamp(3, new Timestamp(post.getUpdated().getTime()));
+                preparedStatement.setString(4, post.getPostStatus().name());
+                preparedStatement.setLong(5, post.getWriter().getId());
 
-            int rowCount = preparedStatement.executeUpdate();
+                int rowCount = preparedStatement.executeUpdate();
 
-            if (rowCount == 0) {
-                throw new JdbcRepositoryException("Создание поста не удалось, ни одна запись не была изменена.");
+                if (rowCount == 0) {
+                    throw new JdbcRepositoryException("Создание поста не удалось.");
+                }
+
+                ResultSet rs = preparedStatement.getGeneratedKeys();
+                if (rs.next()) {
+                    post.setId(rs.getInt(1));
+                } else {
+                    throw new NotFoundException("Не удалось получить ID поста.");
+                }
+
+                addLabelToPost(post.getId(), post.getLabels(), connection);
+
+                return post;
+            } catch (SQLException e) {
+                throw new JdbcRepositoryException("Ошибка при создании поста", e);
             }
-
-            ResultSet rs = preparedStatement.getGeneratedKeys();
-            if (rs.next()) {
-                post.setId(rs.getInt(1));
-            } else {
-                throw new NotFoundException("Не удалось получить id, создание поста не удалось.");
-            }
-        } catch (SQLException e) {
-            throw new JdbcRepositoryException(e.getMessage());
-        }
-        return post;
+        });
     }
 
     @Override
     public Post update(Post updatePost) {
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatementWithKeys(UPDATE_BY_ID_SQL)) {
-            preparedStatement.setString(1, updatePost.getContent());
-            preparedStatement.setTimestamp(2, new Timestamp(updatePost.getUpdated().getTime()));
-            preparedStatement.setString(3, Status.UNDER_REVIEW.name());
-            preparedStatement.setLong(4, updatePost.getId());
+        return ConnectionManager.executeInTransactionWithResult(connection -> {
+            try (PreparedStatement updateStatement = connection.prepareStatement(UPDATE_BY_ID_SQL)) {
 
-            int rowCount = preparedStatement.executeUpdate();
+                updateStatement.setString(1, updatePost.getContent());
+                updateStatement.setTimestamp(2, new Timestamp(updatePost.getUpdated().getTime()));
+                updateStatement.setString(3, Status.UNDER_REVIEW.name());
+                updateStatement.setLong(4, updatePost.getId());
+                updateStatement.executeUpdate();
 
-            if (rowCount == 0) {
-                throw new JdbcRepositoryException("Обновление поста не удалось, ни одна запись не была изменена.");
+                deleteLabelsForPost(updatePost.getId(), connection);
+
+                addLabelToPost(updatePost.getId(), updatePost.getLabels(), connection);
+
+                return updatePost;
+            } catch (SQLException e) {
+                throw new JdbcRepositoryException("Ошибка при обновлении поста", e);
             }
-
-            deleteLabelsForPost(updatePost.getId());
-            addLabelToPost(updatePost.getId(), updatePost.getLabels());
-
-        } catch (SQLException e) {
-            throw new JdbcRepositoryException("Ошибка выполнения SQL-запроса", e);
-        }
-        return updatePost;
+        });
     }
 
     @Override
     public void deleteById(Integer id) {
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(DELETE_BY_ID_SQL)) {
-            preparedStatement.setString(1, Status.DELETED.name());
-            preparedStatement.setInt(2, id);
+        ConnectionManager.executeInTransaction(connection -> {
+            try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(DELETE_BY_ID_SQL)) {
+                preparedStatement.setString(1, Status.DELETED.name());
+                preparedStatement.setInt(2, id);
 
-            int rowCount = preparedStatement.executeUpdate();
-            if (rowCount == 0) {
-                throw new NotFoundException("Невозможно удалить несуществующий пост, id не найден.");
-            }
-        } catch (SQLException e) {
-            throw new JdbcRepositoryException(e.getMessage());
-        }
-    }
-
-    private void addLabelToPost(Integer postId, List<Label> labels) {
-        if (labels == null) {
-            return;
-        }
-
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(INSERT_POST_LABEL_SQL)) {
-            for (Label label : labels) {
-                if (label.getId() != null) {
-                    preparedStatement.setLong(1, postId);
-                    preparedStatement.setLong(2, label.getId());
-
-                    preparedStatement.executeUpdate();
+                int rowCount = preparedStatement.executeUpdate();
+                if (rowCount == 0) {
+                    throw new NotFoundException("Невозможно удалить несуществующий пост, id не найден.");
                 }
+            } catch (SQLException e) {
+                throw new JdbcRepositoryException(e.getMessage());
             }
+        });
+    }
+
+    private void addLabelToPost(Integer postId, List<Label> labels, Connection connection) {
+        if (labels == null) return;
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(INSERT_POST_LABEL_SQL)) {
+            for (Label label : labels) {
+                preparedStatement.setLong(1, postId);
+                preparedStatement.setLong(2, label.getId());
+                preparedStatement.addBatch();
+            }
+            preparedStatement.executeBatch();
         } catch (SQLException e) {
             throw new JdbcRepositoryException(e.getMessage());
         }
     }
 
-    private void deleteLabelsForPost(Integer postId) {
-        try (PreparedStatement preparedStatement = ConnectionManager.getPreparedStatement(DELETE_POST_LABEL_SQL)) {
+    private void deleteLabelsForPost(Integer postId, Connection connection) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(DELETE_POST_LABEL_SQL)) {
             preparedStatement.setInt(1, postId);
-
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
             throw new JdbcRepositoryException(e.getMessage());

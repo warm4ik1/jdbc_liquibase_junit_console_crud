@@ -7,7 +7,7 @@ import java.sql.Connection;
 
 import static org.warm4ik.crud.utils.LiquibaseManager.runLiquibase;
 
-public class Main {
+public class ApplicationRunner {
     public static void main(String[] args) {
         try (Connection connection = ConnectionManager.open()) {
             System.out.println(connection.getTransactionIsolation());

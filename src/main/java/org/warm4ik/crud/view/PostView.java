@@ -87,7 +87,15 @@ public class PostView {
 
     private void getAllPosts() {
         List<Post> posts = postController.getAllPosts();
+
+        // Удаляем дубликаты по ID
+        Map<Integer, Post> uniquePosts = new LinkedHashMap<>();
         for (Post post : posts) {
+            uniquePosts.putIfAbsent(post.getId(), post);
+        }
+
+        // Выводим уникальные посты
+        for (Post post : uniquePosts.values()) {
             Writer writer = post.getWriter();
             String writerInfo = "Writer{id=" + writer.getId() + ", firstName='" + writer.getFirstName() +
                     "', lastName='" + writer.getLastName() + "'}";
@@ -124,7 +132,7 @@ public class PostView {
 
 
     private void deletePost() {
-        System.out.println(postController.getAllPosts());
+        postController.getAllPosts();
         System.out.print("Введите ID поста для удаления: ");
         Integer postId = scanner.nextInt();
         scanner.nextLine();
