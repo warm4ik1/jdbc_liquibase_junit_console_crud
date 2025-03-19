@@ -32,6 +32,7 @@ public class JdbcPostRepository implements PostRepository {
             LEFT JOIN public.post_label pl on p.id = pl.post_id
             LEFT JOIN public.label l on l.id = pl.label_id
             LEFT JOIN public.writer w on p.writer_id = w.id
+            ORDER BY p.id ASC
             """;
     private final static String SAVE_SQL = """
             INSERT INTO public.post (content, created_at, updated_at, status, writer_id)

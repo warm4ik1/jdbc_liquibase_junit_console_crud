@@ -24,6 +24,7 @@ public class JdbcWriterRepository implements WriterRepository {
     private final static String GET_ALL_SQL = """
             SELECT *
             FROM public.writer
+            ORDER BY id ASC
             """;
     private final static String SAVE_WRITER_SQL = """
             INSERT INTO public.writer
