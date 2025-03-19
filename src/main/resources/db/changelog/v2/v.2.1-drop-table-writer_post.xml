@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="remove-writer_post-table" author="warm4ik">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="writer_post"/>
+        </preConditions>
+        <sql>DROP TABLE writer_post;</sql>
+    </changeSet>
+
+    <changeSet id="add-fk-writer-post" author="warm4ik">
+        <addColumn tableName="post">
+            <column name="writer_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <addForeignKeyConstraint baseTableName="post"
+                                 baseColumnNames="writer_id"
+                                 constraintName="writer_id_fkey"
+                                 referencedTableName="writer"
+                                 referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

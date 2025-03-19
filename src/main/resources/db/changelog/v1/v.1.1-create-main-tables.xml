@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+
+    <changeSet id="create-status-enum-type" author="warm4ik">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <sqlCheck expectedResult="1">
+                    SELECT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'status_enum')
+                </sqlCheck>
+            </not>
+        </preConditions>
+        <sql>CREATE TYPE status_enum AS ENUM ('ACTIVE', 'UNDER_REVIEW', 'DELETED');</sql>
+    </changeSet>
+
+    <changeSet id="create-label-table" author="warm4ik">
+        <createTable tableName="label">
+            <column name="id" type="int" autoIncrement="true">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="name" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="status_enum" defaultValue="ACTIVE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="create-post-table-and-update-trigger" author="warm4ik">
+        <createTable tableName="post">
+            <column name="id" type="int" autoIncrement="true">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="content" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITHOUT TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITHOUT TIME ZONE">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="status_enum" defaultValue="ACTIVE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addDefaultValue tableName="post" columnName="created_at" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        <addDefaultValue tableName="post" columnName="updated_at" defaultValueComputed="CURRENT_TIMESTAMP"/>
+
+        <sql>
+            CREATE OR REPLACE FUNCTION update_updated_at()
+            RETURNS TRIGGER AS
+            'BEGIN
+                NEW.updated_at := CURRENT_TIMESTAMP;
+                RETURN NEW;
+            END;'
+            LANGUAGE plpgsql;
+        </sql>
+
+        <sql>
+            CREATE TRIGGER trigger_updated_at
+                BEFORE UPDATE ON post
+                FOR EACH ROW EXECUTE PROCEDURE update_updated_at();
+        </sql>
+    </changeSet>
+
+    <changeSet id="create-writer-table" author="warm4ik">
+        <createTable tableName="writer">
+            <column name="id" type="int" autoIncrement="true">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="first_name" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_name" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="status_enum" defaultValue="ACTIVE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="create-postLabel-connecting-table" author="warm4ik">
+        <createTable tableName="post_label">
+            <column name="id" autoIncrement="true" type="int">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="post_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="label_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="post_label"
+                                 baseColumnNames="post_id"
+                                 constraintName="post_id_fkey"
+                                 referencedTableName="post"
+                                 referencedColumnNames="id"/>
+
+        <addForeignKeyConstraint baseTableName="post_label"
+                                 baseColumnNames="label_id"
+                                 constraintName="label_id_fkey"
+                                 referencedTableName="label"
+                                 referencedColumnNames="id"/>
+
+        <addUniqueConstraint tableName="post_label"
+                             columnNames="post_id, label_id"
+                             constraintName="post_label_id_unique"/>
+    </changeSet>
+
+    <changeSet id="create-writerPosts-connecting-table" author="warm4ik">
+        <createTable tableName="writer_post">
+            <column name="id" autoIncrement="true" type="int">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="writer_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="post_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="writer_post"
+                                 baseColumnNames="writer_id"
+                                 constraintName="writer_id_fkey"
+                                 referencedTableName="writer"
+                                 referencedColumnNames="id"/>
+
+        <addForeignKeyConstraint baseTableName="writer_post"
+                                 baseColumnNames="post_id"
+                                 constraintName="post_id_fkey"
+                                 referencedTableName="post"
+                                 referencedColumnNames="id"/>
+
+        <addUniqueConstraint tableName="writer_post"
+                             columnNames="writer_id, post_id"
+                             constraintName="writer_post_id_unique"/>
+    </changeSet>
+</databaseChangeLog>
