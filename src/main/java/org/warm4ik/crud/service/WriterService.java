@@ -14,8 +14,8 @@ public class WriterService {
         writerRepository.deleteById(id);
     }
 
-    public void updateWriter(Writer updatedWriter) {
-        writerRepository.update(updatedWriter);
+    public Writer updateWriter(Writer updatedWriter) {
+        return writerRepository.update(updatedWriter);
     }
 
     public List<Writer> getAllWriters() {
@@ -26,7 +26,7 @@ public class WriterService {
         return writerRepository.getById(id);
     }
 
-    public void saveWriter(Writer createWriter) {
-        writerRepository.save(createWriter);
+    public Writer saveWriter(Writer createWriter) {
+        return writerRepository.save(createWriter);
     }
 }

@@ -10,8 +10,8 @@ import java.util.List;
 public class PostService {
     private final PostRepository postRepository;
 
-    public void createPost(Post post) {
-        postRepository.save(post);
+    public Post savePost(Post post) {
+        return postRepository.save(post);
     }
 
     public Post getPostById(Integer postId) {
@@ -22,8 +22,8 @@ public class PostService {
         return postRepository.getAll();
     }
 
-    public void updatePost(Post existingPost) {
-        postRepository.update(existingPost);
+    public Post updatePost(Post existingPost) {
+        return postRepository.update(existingPost);
     }
 
     public void deletePost(Integer postId) {

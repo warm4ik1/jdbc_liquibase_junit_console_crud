@@ -12,7 +12,7 @@ public class PostController {
 
 
     public void createPost(Post post) {
-        postService.createPost(post);
+        postService.savePost(post);
     }
 
     public Post getPostById(Integer postId) {
