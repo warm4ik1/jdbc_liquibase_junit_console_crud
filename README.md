@@ -9,4 +9,4 @@ Status (enum ACTIVE, UNDER_REVIEW, DELETED)
 
 Каждая сущность имеет поле Status. В момент удаления, мы не удаляем запись из бд, а меняем её статус на DELETED.
 
-Миграция бд через liquibase(xml).
+Миграция бд через liquibase.
